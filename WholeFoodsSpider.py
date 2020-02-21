@@ -268,7 +268,7 @@ def get_categ_prod_links():
     return prod_links
 
 
-def is_visible(broswer, locator, timeout=30):
+def is_visible(browser, locator, timeout=30):
     """
     Check if an element is visible on the website to control the scraping.
     Inputs:
@@ -279,7 +279,7 @@ def is_visible(broswer, locator, timeout=30):
         True/False (bool): whether the element appears within the given time
     """
     try:
-        ui.WebDriverWait(broswer, timeout).until(
+        ui.WebDriverWait(browser, timeout).until(
             EC.visibility_of_element_located((By.XPATH, locator)))
         return True
     except TimeoutException:
@@ -296,13 +296,13 @@ def get_may_like_prod(prod_links):
     """
     may_like_prod_links = set()
     DOMAIN = "https://products.wholefoodsmarket.com"
-    broswer = webdriver.Chrome()
+    browser = webdriver.Chrome()
     cnt = 0
     for link in prod_links:
-        broswer.get(link)
+        browser.get(link)
 
-        if is_visible(broswer, "//div[@class='SimilarProducts-Row--3e_Rz']"):
-            source = broswer.page_source
+        if is_visible(browser, "//div[@class='SimilarProducts-Row--3e_Rz']"):
+            source = browser.page_source
             soup = bs4.BeautifulSoup(source, features="lxml")
             contents = soup.find_all("a", class_="ProductCard-Root--3g5WI")
             links = [DOMAIN + c.get("href") for c in contents]
@@ -311,7 +311,7 @@ def get_may_like_prod(prod_links):
             may_like_prod_links.update(links)
         else:
             print("TIME OUT!!!!")
-    broswer.close()
+    browser.close()
 
     with open("you-may-like_links.txt", "w") as f:
         for link in may_like_prod_links:
@@ -336,26 +336,167 @@ def get_all_links(prod_links, may_like_prod_links):
     # time-consuming!!!
     with open("final_links.txt", "w") as f:
         for link in all_prod_links:
-            f.write(str(link) + "\n")
+            f.write(str(link))
     return all_prod_links
+
+
+def get_prod_info_list(links):
+    """
+    Get detailed information of each Whole Foods product. Detailed information includes the brand, the name, the ingredients, the nutrition facts, the serving size, how many servings per container as well as the dietary labels of the product.
+    Input:
+        links (iterable): the craweled links of all Whole Foods edible products
+    Output:
+        prod_info_list (list): the list containing detailed information of each product in the form of a dictionary
+    """
+
+    browser = webdriver.Chrome()
+    prod_info_list = []
+
+    cnt = 0
+    for link in links:
+        browser.get(link)
+        cnt += 1
+        print("-" * 40)
+        print(cnt)
+        if is_visible(browser, "//div[@class='Product-Disclaimer--3ZGiZ']"):
+            time.sleep(1)
+            try:
+                ing_nu_buttons = browser.find_elements_by_class_name(
+                    "Collapsible-Root--3cwwH")
+
+                ing_button = ing_nu_buttons[0]
+                ing_action = ActionChains(browser)
+                ing_action.click(ing_button).perform()
+
+                nu_button = ing_nu_buttons[1]
+                nu_action = ActionChains(browser)
+                nu_action.click(nu_button).perform()
+            except Exception:
+                print("The product does not have ingredients and nutrition.")
+
+            try:
+                detail_button = browser.find_element_by_class_name(
+                    "Collapsible-Title--30gLK disable-click-focus")
+                detail_action = ActionChains(browser)
+                detail_action.click(detail_button).perform()
+            except Exception:
+                print("The product does not have product details")
+
+
+            source = browser.page_source
+        soup = bs4.BeautifulSoup(source, features="lxml")
+
+        prod_dic = dict()
+
+        # Brand of the product
+        try:
+            brand_nm = soup.find(
+                "div", class_="ProductHeader-Brand--1Yx6l").get_text()
+            prod_dic["brand name"] = brand_nm.lower()
+        except Exception:
+            prod_dic["brand name"] = None
+
+        # Name of the product
+        prod_nm = soup.find(
+            "h1", class_="ProductHeader-Name--1ysBV").get_text()
+        prod_dic["product name"] = prod_nm.lower()
+
+        # Ingredients of the product from product details
+        try:
+            ingrds = soup.find(
+                "div", class_="Product-CollapsibleStatement--1VluS").get_text()
+            prod_dic["ingredients"] = ingrds.lower()
+        except Exception:
+            print("The product does not have ingredients from product details.")
+
+        # Ingredients of the product
+        try:
+            ingrds = soup.find(
+                "div", class_="Product-SecondaryText--wF9l_").get_text()
+            ingrds = ingrds.strip("Ingredients: ").split(",")
+            prod_dic["ingredients"] = [ingrd.strip().lower()
+                                       for ingrd in ingrds]
+        except Exception:
+            print("The product does not have ingredients.")
+
+        if "ingredients" not in prod_dic.keys():
+            prod_dic["ingredients"] = None
+
+        # Serving size of the product
+        try:
+            serv_size_contents = soup.find(
+                "div", class_="Row__15gM6 NutritionTable-ServingInfo--3UL4q")
+            for i in serv_size_contents:
+                serv_size = i.get_text().lower()
+            prod_dic["serving size"] = serv_size
+        except Exception:
+            prod_dic["serving size"] = None
+
+        # How many servings per container of the product
+        try:
+            servs_num = soup.find(
+                "div", class_="NutritionTable-ServingsPerContainer--1nUJT").get_text().split()[0]
+            prod_dic["servings per container"] = servs_num
+        except Exception:
+            prod_dic["servings per container"] = None
+
+        # Nutrition fact of the product
+        try:
+            contents = soup.find_all("div", class_="Row__15gM6")
+            for line in contents[1:]:
+                line = line.get_text()
+                try:
+                    REG_EXR2 = r"([^0-9]*)(([0-9][.])?[0-9]+)([a-z]*)"
+                    nutri = re.search(REG_EXR2, line).group(1)
+                    quant = re.search(REG_EXR2, line).group(2)
+                    unit = re.search(REG_EXR2, line).group(4)
+                    if len(quant) != 0 and nutri != "Serving Size":
+                        key = nutri.lower() + "(" + unit.lower() + ")"
+                        prod_dic[key] = quant.lower()
+                except Exception:
+                    pass
+        except Exception:
+            print("The product does not have nutrition fact table.")
+
+        # Dietary labels of the product
+        try:
+            labels = soup.find_all("div", class_="Diets-DietName--1T3K1")
+            prod_dic["labels"] = set()
+            for label in labels:
+                prod_dic["labels"].add(label.get_text().lower())
+        except Exception:
+            prod_dic["labels"] = None
+
+        prod_info_list.append(prod_dic)
+    browser.close()
+
+    with open("results.txt", "w") as f:
+        for info in prod_info_list:
+            f.write(str(info))
+
+    return prod_info_list
 
 
 if __name__ == "__main__":
     # get_add_dic("boston")
-
     # get_categ_prod_links()
-    
-    prod_links = set()
-    with open("pord_links.txt") as f:
-        for line in f:
-            prod_links.add(line)
+
+    # prod_links = set()
+    # with open("pord_links.txt") as f:
+    #     for line in f:
+    #         prod_links.add(line)
     # may_like_prod_links = get_may_like_prod(prod_links)
     # print(len(may_like_prod_links))
 
-    may_like_prod_links = set()
-    with open("you-may-like_links.txt") as f:
+    # may_like_prod_links = set()
+    # with open("you-may-like_links.txt") as f:
+    #     for line in f:
+    #         may_like_prod_links.add(line)
+
+    # print(len(get_all_links(prod_links, may_like_prod_links)))
+
+    final_links = list()
+    with open("final_links.txt") as f:
         for line in f:
-            may_like_prod_links.add(line)
-
-
-    print(len(get_all_links(prod_links, may_like_prod_links)))
+            final_links.append(line)
+    prod_info_list = get_prod_info_list(final_links)
