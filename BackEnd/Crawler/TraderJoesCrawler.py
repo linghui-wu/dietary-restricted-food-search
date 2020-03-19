@@ -1,9 +1,9 @@
 import urllib.parse
-import os
 import bs4
 import csv
 import re
 import pandas as pd
+import json
 from bs4 import BeautifulSoup
 from selenium import webdriver
 import jellyfish
@@ -43,7 +43,7 @@ def get_sp(browser, url):
     '''
     browser.get(url)
     html = browser.page_source
-    sp = BeautifulSoup(html)
+    sp = BeautifulSoup(html, 'lxml')
     return sp
 
 
@@ -62,7 +62,8 @@ def get_label_list(label):
     url = 'https://www.traderjoes.com/dietary-lists/' + label
     sp = get_sp(browser, url)
     all_div = sp.find_all(
-        'div', style="columns: 2 325px; -moz-columns: 2 325px; -webkit-columns: 2 325px;")
+        'div', style=\
+        "columns: 2 325px; -moz-columns: 2 325px; -webkit-columns: 2 325px;")
     item_list = []
     for div in all_div:
         info = div.get_text().split('\n')
@@ -73,12 +74,12 @@ def get_label_list(label):
     browser.close()
     return item_list
 
-
-label_dic = {}
-
-for l in LABELS[:3]:
-    label = '-'.join(l.split())
-    label_dic[l] = get_label_list(label)
+def get_label_dic(LABELS):
+    label_dic = {}
+    for l in LABELS[:3]:
+        label = '-'.join(l.split())
+        label_dic[l] = get_label_list(label)
+    return label_dic
 
 
 def check_name(name, label):
@@ -101,7 +102,7 @@ def check_name(name, label):
             return True
 
 
-def get_labels(name, ing_info):
+def get_labels(name, ing_info, label_dic):
     '''
     Label the products by checking the names,
     checking the list extracted from the specialized products
@@ -138,7 +139,7 @@ def get_labels(name, ing_info):
     return label_set
 
 
-def process(sp, index):
+def process(sp, index, label_dic):
     '''
     Extract desired information from the soup object.
 
@@ -153,55 +154,56 @@ def process(sp, index):
     d = {}
 
     if index:
-        name = ' '.join(
-            sp.find('div', class_="article featured").get_text().split())
-        d['name'] = split(name, [' add'])[0].strip()
+        name = ' '.join(sp.find('div',class_="article featured").get_text().\
+            split()).lower()
+        d['name'] = split(name,[' add'])[0].strip()
     else:
-        name = sp.title.get_text().split('|')[0].strip()
+        name =  sp.title.get_text().split('|')[0].strip()
         d['name'] = name
-
+    
     d['store'] = 'Trader Joes'
     all = sp.get_text()
-
+        
     if 'INGREDIENTS:' in all:
         ing_nut_info = ''.join(all.split('INGREDIENTS:')[1:])
     else:
         return d
-
-    if 'varies by region' in ing_nut_info:
+      
+    if 'varies by region' in ing_nut_info.lower():
         return d
     if 'NUTRITION FACTS:' in all:
-        ing_info = ing_nut_info.split('NUTRITION FACTS:')[0].strip()
+        ing_info = ing_nut_info.split('NUTRITION FACTS:')[0].lower().strip().\
+        title()
         d['ing_info'] = ing_info
     else:
         return d
-    nut_info = ''.join(ing_nut_info.split(
-        'NUTRITION FACTS:')[1:]).split('tells you')[0]
+    nut_info = ''.join(ing_nut_info.split('NUTRITION FACTS:')[1:]).\
+    split('tells you')[0].lower().title()
     for nut in NUTRITION_INFO:
         key = '_'.join(nut.split())
         if nut in nut_info:
-            num_list = re.findall('\d+', nut_info.split(nut)[1].split(',')[0])
+            num_list = re.findall('\d+',nut_info.split(nut)[1].split(',')[0])
             if len(num_list) != 0:
-                d[key] = float(num_list[0])
+                d[key] =  float(num_list[0])
             else:
                 d[key] = 0
         else:
             d[key] = 0
-
-    if not ('vari' or 'vaired') in nut_info.split('|')[0]:
-        d['serve_ct'] = float(re.findall('\d+', nut_info)[0])
-
+    
+    if not ('vari' or 'vaired') in nut_info.split('|')[0] :
+        d['serve_ct'] = float(re.findall('\d+',nut_info)[0])
+        
     if 'serv. size:' in nut_info:
-        d['serve_size'] = nut_info.split('serv. size:')[
-            1].split(',')[0].strip()
+        d['serve_size'] = nut_info.split('serv. size:')[1].split(',')[0].strip()
     else:
         if 'serving size' in nut_info:
-            d['serve_size'] = nut_info.split('serving size')[
-                1].split('|')[0].strip()
-
-    d['labels'] = get_labels(name, ing_info)
-
+            d['serve_size'] = nut_info.split('serving size')[1].split('|')[0].\
+            strip() 
+    
+    d['labels'] = get_labels(name, ing_info, label_dic)
+        
     return d
+
 
 
 class TraderJoesCrawler(object):
@@ -222,23 +224,24 @@ class TraderJoesCrawler(object):
         soup = BeautifulSoup(source, 'lxml')
 
         rv = []
+        dic = {'name':[], 'address':[], 'city':[], 'state':[], 'zipcode':[]}
+        temp = soup.findAll('script', type="application/ld+json")
+        for s in temp[1:]:
+            s = json.loads(s.get_text())
+            i = s['address']
+            dic['name'].append('trader joes')
+            dic['address'].append(i['streetAddress'])
+            dic['city'].append(i['addressLocality'])
+            dic['state'].append(i['addressRegion'])
+            dic['zipcode'].append(i['postalCode'])
 
-        for s in soup.get_text().split('streetaddress":"')[1:]:
-            dic = {}
-        dic['name'] = 'trader joes'
-        dic['address'] = s.split('"')[0]
-        dic['city'] = s.split('addresslocality":"')[1].split('"')[0]
-        dic['state'] = s.split('addressregion":"')[1].split('"')[0]
-        dic['zipcode'] = s.split('postalcode":"')[1].split('"')[0]
-        rv.append(dic)
-
-        df = pd.DataFrame(rv)
+        df = pd.DataFrame(dic)
         with open('TJ_store.csv', 'w') as f:
             df.to_csv(path_or_buf=f, index=True)
 
         return df
 
-    def get_byindex(self, num):
+    def get_byindex(self, num, label_dic):
         '''
         Access the first data set in Trader Joes by 
         the indices of the products and get the product
@@ -259,9 +262,9 @@ class TraderJoesCrawler(object):
             url = 'https://www.traderjoes.com/fearless-flyer/article/' + str(i)
             browser.get(url)
             html = browser.page_source
-            sp = BeautifulSoup(html)
-            if 'article' in sp.title.get_text():
-                product = process(sp, True)
+            sp = BeautifulSoup(html, 'lxml')
+            if 'Article' in sp.title.get_text():
+                product = process(sp, True, label_dic)
                 product['index'] = i
                 indx_dic.append(product)
                 ct += 1
@@ -269,11 +272,10 @@ class TraderJoesCrawler(object):
         browser.close()
 
         df_indx = pd.DataFrame(indx_dic)
-        #df_indx = df_indx.dropna(subset = ['ing_info'])
 
         return df_indx
 
-    def get_bydigin(self, num):
+    def get_bydigin(self, num, label_dic):
         '''
         Access the second data set in Trader Joes by 
         the digin posts and get the product
@@ -295,7 +297,7 @@ class TraderJoesCrawler(object):
             url = 'https://www.traderjoes.com/digin/page/' + str(pg)
             browser.get(url)
             html = browser.page_source
-            sp = BeautifulSoup(html)
+            sp = BeautifulSoup(html, 'lxml')
             for link in sp.find_all('a'):
                 if '/post/' in link.get('href'):
                     name = link.get('href').split('/post/')[1]
@@ -309,16 +311,15 @@ class TraderJoesCrawler(object):
             url = 'https://www.traderjoes.com/digin/post/' + n
             browser.get(url)
             html = browser.page_source
-            sp = BeautifulSoup(html)
-            digin_dic.append(process(sp, False))
+            sp = BeautifulSoup(html, 'lxml')
+            digin_dic.append(process(sp, False, label_dic))
 
         browser.close()
         df_digin = pd.DataFrame(digin_dic)
-        #df_digin = df_digin.dropna(subset = ['ing_info'])
 
         return df_digin
 
-    def get_bylabel(self):
+    def get_bylabel(self, label_dic):
         '''
         Access the third data set in Trader Joes by 
         the specified products and get the product
@@ -362,11 +363,7 @@ class TraderJoesCrawler(object):
         df_tj = df_tj.drop_duplicates(subset=['name'])
         return df_tj
 
-
-# In[51]:
-
-
-def go(test=True, run_stores=True, item_idx=1000, pg_digin=52, run_label=True):
+def go(test, run_stores, item_idx, pg_digin, run_label):
     '''
     The test function for crawling over Trader Joes.
 
@@ -385,34 +382,36 @@ def go(test=True, run_stores=True, item_idx=1000, pg_digin=52, run_label=True):
         A TraderJoesCrawler Object
     '''
     tj = TraderJoesCrawler()
-
+    label_dic = get_label_dic(LABELS)
     if test:
         if run_stores:
             tj.stores = tj.get_stores(
                 'https://locations.traderjoes.com/il/chicago/')
             print('Trader Joes store list is complete.')
 
-        tj.byindex = tj.get_byindex(item_idx)
-        tj.bydigin = tj.get_bydigin(pg_digin)
+        tj.byindex = tj.get_byindex(item_idx, label_dic)
+        tj.bydigin = tj.get_bydigin(pg_digin, label_dic)
 
         if run_label:
-            tj.bylabel = tj.get_bylabel()
+            tj.bylabel = tj.get_bylabel(label_dic)
             tj.final = tj.get_final([tj.byindex, tj.bydigin, tj.bylabel])
         else:
             tj.final = tj.get_final([tj.byindex, tj.bydigin])
 
-        with open('tj_test.csv', 'w') as f:
+        with open('TJ_test.csv', 'w') as f:
             tj.final.to_csv(path_or_buf=f, index=True)
 
+        for prod in tj.final.iterrows():
+            print(prod)
         print('Trader Joes product info is complete.')
 
     else:
         tj.stores = tj.get_stores(
             'https://locations.traderjoes.com/il/chicago/')
         print('Trader Joes store list is complete.')
-        tj.byindex = tj.get_byindex(1000)
-        tj.bydigin = tj.get_bydigin(100)
-        tj.bylabel = tj.get_bylabel()
+        tj.byindex = tj.get_byindex(1000, label_dic)
+        tj.bydigin = tj.get_bydigin(100, label_dic)
+        tj.bylabel = tj.get_bylabel(label_dic)
         tj.final = tj.get_final([tj.byindex, tj.bydigin, tj.bylabel])
 
         with open('TJ_prod.csv', 'w') as f:
@@ -430,8 +429,8 @@ def go(test=True, run_stores=True, item_idx=1000, pg_digin=52, run_label=True):
 # Get all food items stored in 5 pages of digin posts
 # Do not get food items generated from the label pages (False)
 
-tj = go(True, True, 30, 5, False)
+# tj = go(True, True, 30, 5, False)
 
 
 # You may check the output dataframe by calling:
-tj.final
+# tj.final

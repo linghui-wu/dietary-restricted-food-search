@@ -19,8 +19,6 @@ The project aims to meet the needs of consumers in Chicago who have special food
 
 ### 2. Structure
 
-The project consists of two major parts: the Back End and the Front End.
-
 
 #### 2.1 Back End
 
@@ -30,7 +28,7 @@ The `BackEnd` folder is composed of three modules, the web-crawler, the data cle
 
 In each of the `JOCrawler.py`, `TradeJoesCrawler.py` and `WholeFoodsCrawler.py`, we created a class and defined helper functions to collect and store product and store information from the three grocery stores mentioned above. 
 
-To facilitate the replication of web scraping, we provide `test.py` to run in the command line. You may specify the number of observations and the name of the store and it would generate sample csv files. Please see intructional write-up in the `BackEnd\Crawler` folder for more details.
+To facilitate the replication of web scraping, we provide `test.py` to run in the command line. You may specify the number of observations and the name of the store and it would generate sample csv files. Please see `Test_Intructions.md` in the `BackEnd\Crawler` folder for more details.
 
 - Data Cleaner
 
@@ -57,19 +55,19 @@ To run the Django web interface for the grocery search tool, you can enter `pyth
 
 ### 3. Accomplishment
 
-We initially planned to develop a grocery search engine catering to individuals with dietary restrictions. After scraping and cleaning data from Whole Foods, Trader Joe's, and Instacart websites, we successfully built a database containing product and store information and a user-interactive interface that implement keywords queries based on food ingredients, nutrition contents, dietary labels, and store information.
+Our project aims to develop a grocery search engine catering to individuals' dietary restrictions. We have achieved the primary goal of this project. We successfully built a database containing product and store information and a user-interactive interface that implement keywords queries based on food ingredients, nutrition contents, dietary labels, and store information.
 
-We have achieved the primary goal of this project. However, there are still some aspects we can make further improvements:
+However, here are some aspects we can further improve:
 
 - Provide more detailed dietary labels
 
-Due to the variation on how product information is documented in each website and the broad definition of those dietary labels, we only considered  "organic", "vegan", "dairy-free", and "kosher". However, we may identify more features by performing content analysis on the ingredients, such as distinguishing "vegan" foods from "vegetarian" ones.
+Due to the broad definition of dietary labels and different documentations on each website, we only took  "organic", "vegan", "dairy-free", and “kosher" into considerations. However, we may identify more dietary labels through content analysis on the ingredients.
 
 - Offer more precise store locations
 
-For now, the program can only provide consumers with nearby grocery stores by their zip code and finding stores that share the same first four-digit zipcode. However, we hope to convert the store address into longitude and latitude and utilize Google Map API to calculate a more precise distance between the target store and the user. 
+For now, our project can provide nearby stores by querying users’ zipcode and find stores that share first four-digit zipcode. We hope to convert store addresses to longitude and latitude and utilize Google Map API to calculate precise distances between the target store and the user. 
 
-- Design a more attractive and user-friendly web interface
+- Design a more attractive and user-friendly interface
 
-Due to our limited knowledge about web development, we implemented the UI primarily based on the codes in the previous assignment. With more in-depth learning on HTML and front-end development, we hope to display thorough details of each product neatly. 
+Due to limited practice on web development, we implemented the UI primarily based on previous assignment. With more in-depth learning, we hope to display thorough details of each product neatly. 
 

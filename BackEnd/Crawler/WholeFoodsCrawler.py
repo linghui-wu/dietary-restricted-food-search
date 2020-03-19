@@ -7,7 +7,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
-import ast
 import bs4
 import time
 import re
@@ -95,9 +94,6 @@ class WholeFoodsCrawler(object):
             zipcode = full_adds[1].get_text().split()[2]
             self.store_info.append([add, city, state, zipcode])
 
-        with open("WFStores.txt", "w") as f:
-            for info in self.store_info:
-                f.write(str(info) + "\n")
         return self.store_info
 
     def get_categ_prod_links(self):
@@ -168,9 +164,6 @@ class WholeFoodsCrawler(object):
 
         browser.close()
 
-        with open("WFCategLinks.txt", "w") as f:
-            for link in self.prod_links:
-                f.write(str(link) + "\n")
         return self.prod_links
 
     def get_maylike_prod_links(self):
@@ -182,7 +175,8 @@ class WholeFoodsCrawler(object):
         for link in self.prod_links:
             browser.get(link)
 
-            if is_visible(browser, "//div[@class='SimilarProducts-Row--3e_Rz']"):
+            if is_visible(browser, \
+                "//div[@class='SimilarProducts-Row--3e_Rz']"):
                 links = get_links(browser.page_source)
                 self.maylike_links.update(links)
             else:
@@ -190,19 +184,12 @@ class WholeFoodsCrawler(object):
 
         browser.close()
 
-        with open("WFMaylikeLinks.txt", "w") as f:
-            for link in self.maylike_links:
-                f.write(str(link) + "\n")
-
         return self.maylike_links
 
     def get_all_links(self):
         """Combine product links from category and you-may-like."""
         self.all_links = set(self.prod_links).union(set(self.maylike_links))
 
-        with open("WFAllLinks.txt", "w") as f:
-            for link in self.all_links:
-                f.write(str(link) + "\n")
         return self.all_links
 
     def get_prod_info(self):
@@ -253,7 +240,8 @@ class WholeFoodsCrawler(object):
             # Ingredients from product details
             try:
                 ingrds = soup.find(
-                    "div", class_="Product-CollapsibleStatement--1VluS").get_text()
+                    "div", class_="Product-CollapsibleStatement--1VluS").\
+                get_text()
                 prod_dic["ingredients"] = ingrds
             except Exception:
                 prod_dic["ingredients"] = None
@@ -279,7 +267,8 @@ class WholeFoodsCrawler(object):
             # How many servings per container
             try:
                 servs_num = soup.find(
-                    "div", class_="NutritionTable-ServingsPerContainer--1nUJT").get_text().split()[0]
+                    "div", class_="NutritionTable-ServingsPerContainer--1nUJT")\
+                .get_text().split()[0]
                 prod_dic["servings per container"] = servs_num
             except Exception:
                 prod_dic["servings per container"] = None
@@ -294,7 +283,7 @@ class WholeFoodsCrawler(object):
                         nutri = re.search(REG_EXR2, line).group(1)
                         quant = re.search(REG_EXR2, line).group(2)
                         if len(quant) != 0 and nutri != "Serving Size":
-                            key = nutri
+                            key = nutri.lower()
                             prod_dic[key] = quant
                     except Exception:
                         pass
@@ -306,16 +295,12 @@ class WholeFoodsCrawler(object):
                 labels = soup.find_all("div", class_="Diets-DietName--1T3K1")
                 prod_dic["labels"] = set()
                 for label in labels:
-                    prod_dic["labels"].add(label.get_text()
+                    prod_dic["labels"].add(label.get_text())
             except Exception:
                 prod_dic["labels"] = None
 
             self.prod_info.append(prod_dic)
         browser.close()
-
-        with open("WF_results.txt", "w") as f:
-            for info in self.prod_info:
-                f.write(str(info))
 
         return self.prod_info
 
@@ -335,16 +320,18 @@ class WholeFoodsCrawler(object):
                 new_series = pd.DataFrame(d, index=[0]).iloc[0]
             orig = pd.concat([orig, new_series], axis=1,
                              ignore_index=True, sort=False)
-        COLS = ["product name", "ingredients", "calories", "trans fat", "saturated fat", "total fat", "sodium", "cholesterol",
-                "total carbohydrates", "dietary fiber", "protein", "sugars", "labels", "serving size", "servings per container"]
+        COLS = ["product name", "ingredients", "calories", "trans fat", \
+        "saturated fat", "total fat", "sodium", "cholesterol", \
+        "total carbohydrates", "dietary fiber", "protein", "sugars", \
+        "labels", "serving size", "servings per container"]
         self.results = orig.T[COLS]
         self.results["store"] = "Whole Foods"
-        self.results.to_csv("WFProducts.csv")
+        self.results.to_csv("WF_prod.csv")
 
         # Stores
         self.adds = pd.DataFrame(self.stores)
         self.adds.columns = ["add", "city", "state", "zipcode"]
-        self.adds.to_csv("WFStores.csv")
+        self.adds.to_csv("WF_store.csv")
         return self.results, self.adds
 
 
@@ -365,8 +352,7 @@ def go(test=False, num=None):
         wf.all_links = list(wf.get_all_links())[:num]
         wf.prod_info = wf.get_prod_info()
         wf.results, wf.adds = wf.clean()
-        for prod in wf.results.iterrows():
-            print(prod)
+        
     else:
         wf.maylike_links = wf.get_maylike_prod_links()
         wf.all_links = wf.get_all_links()

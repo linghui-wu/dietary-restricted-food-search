@@ -1,20 +1,19 @@
 import JOCrawler
-# import tj
+import TraderJoesCrawler
 import WholeFoodsCrawler
 import sys
-# from webdriver_manager.chrome import ChromeDriverManager
 
 if __name__ == '__main__':
 	num = int(sys.argv[1])
-	crawler = int(sys.argv[2])
-	if crawler == 1:
+	crawler = str(sys.argv[2])
+	if crawler == 'TJ':
 		print("Test Trader Joe's")
-		tj.go(True, num, 1, False)
+		TraderJoesCrawler.go(True, True, num, 2, False)
 		print('Please open TJ_store.csv to see the test sample')
-	elif crawler == 2:
+	elif crawler == 'WF':
 		print("Test Whole Foods")
 		WholeFoodsCrawler.go(True, num)
-		print('Please open WFStores.txt to see the store list')
+		print('Please open WF_store.csv to see the store list')
 	else:
 		print("Test Jewel Osco")
 		JOCrawler.go(True, num)

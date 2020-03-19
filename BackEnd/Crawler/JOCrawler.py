@@ -3,7 +3,6 @@ import time
 import json
 import requests
 import csv
-import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from selenium import webdriver
@@ -15,6 +14,10 @@ from bs4 import BeautifulSoup as bs
 class JOCrawler(object):
 
     def __init__(self, num=None, test=False):
+        '''
+        If want to test the crawler, please input test=True and the number
+        of items you want to get
+        '''
         self.item_ids = []
         self.label_dict = {}
         self.label_list = ['organic', 'gluten_free',
@@ -24,6 +27,9 @@ class JOCrawler(object):
         self.test = test
 
     def get_body(self, browser):
+        '''
+        Get the body of the browser
+        ''' 
         Pagelength = browser.execute_script(
             "window.scrollTo(0, document.body.scrollHeight);")
         source = browser.page_source
@@ -32,6 +38,9 @@ class JOCrawler(object):
         return body
 
     def get_item_ids(self, browser, num_scroll):
+        '''
+        Get the index of items in the departments
+        '''
         scroll_down = "window.scrollTo(0, document.body.scrollHeight);"
         Pagelength = browser.execute_script(scroll_down)
         item_ids = []
@@ -42,7 +51,8 @@ class JOCrawler(object):
         source = browser.page_source
         data = bs(source, 'lxml')
         body = data.find('body')
-        for cnt, item in enumerate(body.find_all('div', attrs={'class': 'item-info'})):
+        for cnt, item in enumerate(body.find_all('div', attrs=\
+            {'class': 'item-info'})):
             if item['id'] not in item_ids and 'undefined' not in item['id']:
                 item_ids.append(item['id'][14:])
                 if self.num:
@@ -52,12 +62,15 @@ class JOCrawler(object):
         return list(item_ids)
 
     def build_item_csv(self, browser, domain, file_name):
+        '''
+        Build csv file for the items' information
+        '''
         with open(file_name, mode='w') as csv_file:
             writer = csv.writer(csv_file, delimiter=',')
             writer.writerow(('id', 'name', 'ingred', 'calories', 'trans_fat',
-                             'satu_fat', 'tot_fat', 'sodium', 'cholestreol', 'tot_carhy',
-                             'diet_fiber', 'protein', 'sugar', 'labels', 'serv_size',
-                             'tot_serv', 'store'))
+                             'satu_fat', 'tot_fat', 'sodium', 'cholestreol', \
+                             'tot_carhy','diet_fiber', 'protein', 'sugar', \
+                             'labels', 'serv_size','tot_serv', 'store'))
             for i in self.item_ids:
                 browser.get(domain + 'items/item_' + i)
                 time.sleep(5)
@@ -93,9 +106,13 @@ class JOCrawler(object):
                                      nut_dict.get('Dietary Fiber', 0),
                                      nut_dict.get('Protein', 0),
                                      nut_dict.get('Sugars', 0),
-                                     label, serve_size, serve_num, 'jewel osco'))
+                                     label, serve_size, serve_num, \
+                                     'Jewel Osco'))
 
     def build_nut_dict(self, nutrition_facts):
+        '''
+        Build the nutrition dictionary for each item
+        '''
         nut_dict = {}
         nut_info = []
         for label in nutrition_facts:
@@ -110,6 +127,9 @@ class JOCrawler(object):
         return nut_dict, ",".join(nut_info)
 
     def get_labels(self, cat_link, browser):
+        '''
+        Get the dictionary of labels for the items in each department
+        '''
         for label in self.label_list:
             browser.get(cat_link + "?nutrition%5B%5D={}".format(label))
             time.sleep(5)
@@ -117,6 +137,9 @@ class JOCrawler(object):
                 label, []) + self.get_item_ids(browser, 10)
 
     def get_store_info(self, browser):
+        '''
+        Get the store information of Jewel Osco in Chicago
+        '''
         loc_body = self.get_body(browser)
         add = loc_body.findAll('address', attrs={"class": "c-address"})
         address = []
@@ -138,12 +161,18 @@ class JOCrawler(object):
                 idx += 1
 
     def get_dep_links(self, domain, body):
+        '''
+        Get the department links of Jewel Osco
+        '''
         for link in body.findAll('a', attrs={"class": "rmq-7fc413e6"}):
             if 'aisles' not in link.get('href'):
                 self.dep_links.append(domain + link.get('href'))
         self.dep_links = self.dep_links[3:9] + self.dep_links[10:18]
 
     def go_product(self):
+        '''
+        Build the csv file of product information
+        '''
         url = 'https://www.instacart.com/store/jewel-osco/browse_departments'
         browser = webdriver.Chrome(ChromeDriverManager().install())
         browser.get(url)
@@ -193,6 +222,9 @@ class JOCrawler(object):
             df.to_csv('JOSCO_prod.csv')
 
     def go_store(self):
+        '''
+        Build the csv file of store information
+        '''
         url = 'https://local.jewelosco.com/il/chicago.html'
         browser = webdriver.Chrome(ChromeDriverManager().install())
         browser.get(url)
@@ -201,6 +233,9 @@ class JOCrawler(object):
 
 
 def go(test, num):
+    '''
+    Run the Jewel Osco product spider
+    '''
     jo = JOCrawler(num, test)
     print("Getting Jewel Osco stores...")
     jo.go_store()
