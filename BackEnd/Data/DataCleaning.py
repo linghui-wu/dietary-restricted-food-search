@@ -8,17 +8,25 @@ def prod_clean(tj, wf, josco):
     josco_prod = pd.read_csv(josco, index_col=0)
     josco_prod.drop(columns=["id"], inplace=True)
 
-    tj_prod.columns = ["name", "store", "ingred", "calories", "trans_fat", "tot_fat", "satu_fat", "sodium",
-                       "cholesterol", "tot_carhy", "diet_fiber", "protein", "sugars", "tot_serv", "serv_size", "labels"]
-    wf_prod.columns = ["name", "ingred", "calories", "trans_fat", "satu_fat", "tot_fat", "sodium",
-                       "cholesterol", "tot_carhy", "diet_fiber", "protein", "sugars", "labels", "serv_size", "tot_serv", "store"]
-    josco_prod.columns = ["name", "ingred", "serv_size", "tot_serv", "calories", "tot_fat", "satu_fat",
-                          "trans_fat", "tot_carhy", "sugars", "protein", "sodium", "diet_fiber", "cholesterol", "store", "labels"]
+    tj_prod.columns = ["name", "store", "ingred", "calories",
+                       "trans_fat", "tot_fat", "satu_fat", "sodium",
+                       "cholesterol", "tot_carhy", "diet_fiber", "protein",
+                       "sugars", "tot_serv", "serv_size", "labels"]
+    wf_prod.columns = ["name", "ingred", "calories", "trans_fat",
+                       "satu_fat", "tot_fat", "sodium", "cholesterol",
+                       "tot_carhy", "diet_fiber", "protein", "sugars",
+                       "labels", "serv_size", "tot_serv", "store"]
+    josco_prod.columns = ["name", "ingred", "serv_size", "tot_serv", \
+                       "calories", "tot_fat", "satu_fat","trans_fat", \
+                       "tot_carhy", "sugars", "protein", "sodium", \
+                       "diet_fiber", "cholesterol", "store", "labels"]
 
     product = pd.concat([tj_prod, wf_prod, josco_prod], sort=False)
     # Reorignize dataframe columns according to the SQL structure
-    product = product[["name", "ingred", "calories", "trans_fat", "satu_fat", "tot_fat", "sodium",
-                       "cholesterol", "tot_carhy", "diet_fiber", "protein", "sugars", "labels", "serv_size", "tot_serv", "store"]]
+    product = product[["name", "ingred", "calories", "trans_fat", \
+                       "satu_fat", "tot_fat", "sodium", "cholesterol", \
+                       "tot_carhy", "diet_fiber", "protein", "sugars", \
+                       "labels", "serv_size", "tot_serv", "store"]]
     # print(product.columns)
     product["store"] = product["store"]
     product = product[product["name"].notna()]
@@ -49,7 +57,7 @@ def store_clean(tj, wf, josco):
 
 
 def go():
-    """Run the data cleaning"""
+    """Run the data cleaning process."""
     tj_prod = "TJ_prod.csv"
     wf_prod = "WF_prod.csv"
     josco_prod = "JOSCO_prod.csv"
