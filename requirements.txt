@@ -2,7 +2,7 @@ selenium==3.141.0
 jellyfish==0.7.2
 webdriver_manager==2.3.0
 numpy==1.18.1
-Django==3.0.4
+Django==3.0.7
 requests==2.22.0
 pandas==1.0.1
 beautifulsoup4==4.8.2
